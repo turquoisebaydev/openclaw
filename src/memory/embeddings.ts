@@ -185,7 +185,9 @@ export async function createEmbeddingProvider(
           continue;
         }
         // Non-auth errors (e.g., network) are still fatal
-        throw new Error(message, { cause: err });
+        const wrapped = new Error(message) as Error & { cause?: unknown };
+        wrapped.cause = err;
+        throw wrapped;
       }
     }
 
@@ -241,7 +243,9 @@ export async function createEmbeddingProvider(
         providerUnavailableReason: reason,
       };
     }
-    throw new Error(reason, { cause: primaryErr });
+    const wrapped = new Error(reason) as Error & { cause?: unknown };
+    wrapped.cause = primaryErr;
+    throw wrapped;
   }
 }
 
