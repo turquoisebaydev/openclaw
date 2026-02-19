@@ -5,6 +5,7 @@ import { makeTempWorkspace, writeWorkspaceFile } from "../test-helpers/workspace
 import {
   DEFAULT_AGENTS_FILENAME,
   DEFAULT_BOOTSTRAP_FILENAME,
+  DEFAULT_HEARTBEAT_FILENAME,
   DEFAULT_IDENTITY_FILENAME,
   DEFAULT_MEMORY_ALT_FILENAME,
   DEFAULT_MEMORY_FILENAME,
@@ -141,6 +142,96 @@ describe("loadWorkspaceBootstrapFiles", () => {
 
     const files = await loadWorkspaceBootstrapFiles(tempDir);
     expect(getMemoryEntries(files)).toHaveLength(0);
+  });
+
+  it("includes PROFILE-<name>.md when OPENCLAW_PROFILE is set and file exists", async () => {
+    const tempDir = await makeTempWorkspace("openclaw-workspace-");
+    await writeWorkspaceFile({ dir: tempDir, name: "PROFILE-mini1.md", content: "mini1 profile" });
+
+    const files = await loadWorkspaceBootstrapFiles(tempDir, { OPENCLAW_PROFILE: "mini1" });
+    const profileEntry = files.find((file) => file.name === "PROFILE-mini1.md");
+
+    expect(profileEntry).toBeDefined();
+    expect(profileEntry?.missing).toBe(false);
+    expect(profileEntry?.content).toBe("mini1 profile");
+  });
+
+  it("does NOT include profile file when OPENCLAW_PROFILE is unset", async () => {
+    const tempDir = await makeTempWorkspace("openclaw-workspace-");
+    await writeWorkspaceFile({ dir: tempDir, name: "PROFILE-mini1.md", content: "mini1 profile" });
+
+    const files = await loadWorkspaceBootstrapFiles(tempDir, {});
+    const profileEntry = files.find((file) => file.name === "PROFILE-mini1.md");
+
+    expect(profileEntry).toBeUndefined();
+  });
+
+  it("does NOT include profile file when OPENCLAW_PROFILE is 'default'", async () => {
+    const tempDir = await makeTempWorkspace("openclaw-workspace-");
+    await writeWorkspaceFile({
+      dir: tempDir,
+      name: "PROFILE-default.md",
+      content: "default profile",
+    });
+
+    const files = await loadWorkspaceBootstrapFiles(tempDir, { OPENCLAW_PROFILE: "default" });
+    const profileEntry = files.find((file) => file.name === "PROFILE-default.md");
+
+    expect(profileEntry).toBeUndefined();
+  });
+
+  it("silently skips when profile file doesn't exist (no missing marker)", async () => {
+    const tempDir = await makeTempWorkspace("openclaw-workspace-");
+
+    const files = await loadWorkspaceBootstrapFiles(tempDir, { OPENCLAW_PROFILE: "nonexistent" });
+    const profileEntry = files.find((file) => file.name === "PROFILE-nonexistent.md");
+
+    expect(profileEntry).toBeUndefined();
+  });
+
+  it("profile file appears in correct load order (after USER.md, before HEARTBEAT.md)", async () => {
+    const tempDir = await makeTempWorkspace("openclaw-workspace-");
+    await writeWorkspaceFile({ dir: tempDir, name: DEFAULT_USER_FILENAME, content: "user" });
+    await writeWorkspaceFile({ dir: tempDir, name: "PROFILE-mini1.md", content: "profile" });
+    await writeWorkspaceFile({
+      dir: tempDir,
+      name: DEFAULT_HEARTBEAT_FILENAME,
+      content: "heartbeat",
+    });
+
+    const files = await loadWorkspaceBootstrapFiles(tempDir, { OPENCLAW_PROFILE: "mini1" });
+
+    const userIndex = files.findIndex((file) => file.name === DEFAULT_USER_FILENAME);
+    const profileIndex = files.findIndex((file) => file.name === "PROFILE-mini1.md");
+    const heartbeatIndex = files.findIndex((file) => file.name === DEFAULT_HEARTBEAT_FILENAME);
+
+    expect(userIndex).toBeGreaterThanOrEqual(0);
+    expect(profileIndex).toBeGreaterThan(userIndex);
+    expect(heartbeatIndex).toBeGreaterThan(profileIndex);
+  });
+});
+
+describe("filterBootstrapFilesForSession", () => {
+  it("keeps profile files for subagent sessions", async () => {
+    const tempDir = await makeTempWorkspace("openclaw-workspace-");
+    await writeWorkspaceFile({ dir: tempDir, name: "PROFILE-mini1.md", content: "profile" });
+
+    const files = await loadWorkspaceBootstrapFiles(tempDir, { OPENCLAW_PROFILE: "mini1" });
+    const filtered = filterBootstrapFilesForSession(files, "agent:main:subagent:abc123");
+
+    const profileEntry = filtered.find((file) => file.name === "PROFILE-mini1.md");
+    expect(profileEntry).toBeDefined();
+  });
+
+  it("keeps profile files for cron sessions", async () => {
+    const tempDir = await makeTempWorkspace("openclaw-workspace-");
+    await writeWorkspaceFile({ dir: tempDir, name: "PROFILE-mini1.md", content: "profile" });
+
+    const files = await loadWorkspaceBootstrapFiles(tempDir, { OPENCLAW_PROFILE: "mini1" });
+    const filtered = filterBootstrapFilesForSession(files, "agent:main:cron:abc123");
+
+    const profileEntry = filtered.find((file) => file.name === "PROFILE-mini1.md");
+    expect(profileEntry).toBeDefined();
   });
 });
 
