@@ -1,0 +1,155 @@
+name: Promoted Release (turq)
+
+on:
+  push:
+    tags:
+      - 'v*-turq.*'
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'The git ref (tag or SHA) to build'
+        required: true
+        default: 'main'
+      release_tag:
+        description: 'The release tag name to create/publish (e.g. v2026.2.21-606-turq.2)'
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: promoted-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build + package dist
+    runs-on: blacksmith-16vcpu-ubuntu-2404
+    outputs:
+      asset_name: ${{ steps.meta.outputs.asset_name }}
+      tag_name: ${{ steps.meta.outputs.tag_name }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.ref }}
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22.x
+          check-latest: true
+
+      - name: Setup pnpm + cache store
+        uses: ./.github/actions/setup-pnpm-store-cache
+        with:
+          pnpm-version: '10.23.0'
+          cache-key-suffix: 'node22'
+
+      - name: Install deps
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+
+      - name: Build metadata
+        id: meta
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name }}"
+          SHA="$(git rev-parse HEAD)"
+          ASSET="openclaw-dist-${TAG}.tgz"
+          echo "asset_name=${ASSET}" >> "$GITHUB_OUTPUT"
+          echo "tag_name=${TAG}" >> "$GITHUB_OUTPUT"
+
+          mkdir -p _promoted_release
+          cat > _promoted_release/VERSION.json <<EOF
+          {
+            "tag": "${TAG}",
+            "sha": "${SHA}",
+            "builtAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          }
+          EOF
+
+      - name: Package dist bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.meta.outputs.tag_name }}"
+          ASSET="openclaw-dist-${TAG}.tgz"
+
+          # Include enough to run: dist/ + package metadata + VERSION.json.
+          # dist/ includes control-ui assets.
+          tar -czf "$ASSET" \
+            dist \
+            package.json \
+            pnpm-lock.yaml \
+            _promoted_release/VERSION.json
+
+          ls -lah "$ASSET"
+
+      - name: Upload build artifact (actions)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.meta.outputs.asset_name }}
+          path: ${{ steps.meta.outputs.asset_name }}
+          if-no-files-found: error
+
+  smoke:
+    name: Smoke test (macos + ubuntu)
+    needs: [build]
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, blacksmith-16vcpu-ubuntu-2404]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22.x
+          check-latest: true
+
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.build.outputs.asset_name }}
+
+      - name: Unpack
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${{ needs.build.outputs.tag_name }}"
+          ASSET="openclaw-dist-${TAG}.tgz"
+          mkdir -p _bundle
+          tar -xzf "$ASSET" -C _bundle
+
+      - name: Version
+        run: node _bundle/dist/index.js --version
+
+      - name: CLI help
+        run: node _bundle/dist/index.js --help
+
+  release:
+    name: Publish GitHub Release
+    needs: [build, smoke]
+    runs-on: blacksmith-16vcpu-ubuntu-2404
+    steps:
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.build.outputs.asset_name }}
+
+      - name: Publish release asset
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.build.outputs.tag_name }}
+          name: ${{ needs.build.outputs.tag_name }}
+          generate_release_notes: true
+          files: |
+            ${{ needs.build.outputs.asset_name }}
