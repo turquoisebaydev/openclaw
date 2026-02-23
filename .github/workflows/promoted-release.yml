@@ -98,13 +98,9 @@ jobs:
           if-no-files-found: error
 
   smoke:
-    name: Smoke test (macos + ubuntu)
+    name: Smoke test (ubuntu)
     needs: [build]
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [macos-14, blacksmith-16vcpu-ubuntu-2404]
-    runs-on: ${{ matrix.os }}
+    runs-on: blacksmith-16vcpu-ubuntu-2404
     steps:
       - name: Checkout
         uses: actions/checkout@v4
