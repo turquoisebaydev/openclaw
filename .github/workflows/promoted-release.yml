@@ -62,17 +62,29 @@ jobs:
           echo "tag_name=${TAG}" >> "$GITHUB_OUTPUT"
           echo "asset_name=openclaw-pack-${TAG}.tgz" >> "$GITHUB_OUTPUT"
 
-      - name: Pack
+      - name: Pack (inject lockfile)
         shell: bash
         run: |
           set -euo pipefail
           TAG="${{ steps.meta.outputs.tag_name }}"
 
           # pnpm pack outputs e.g. openclaw-2026.2.22.tgz
-          OUT="$(pnpm pack --pack-destination . | tail -n 1)"
+          RAW="$(pnpm pack --pack-destination . | tail -n 1)"
           ASSET="openclaw-pack-${TAG}.tgz"
 
-          mv -f "$OUT" "$ASSET"
+          rm -rf _packtmp
+          mkdir -p _packtmp
+          tar -xzf "$RAW" -C _packtmp
+
+          # The packed tarball does not include pnpm-lock.yaml. Create one that matches
+          # the packed package context, then include it to allow frozen installs on targets.
+          (
+            cd _packtmp/package
+            CI=true pnpm install --prod --lockfile-only --no-frozen-lockfile
+            test -f pnpm-lock.yaml
+          )
+
+          tar -czf "$ASSET" -C _packtmp package
           ls -lah "$ASSET"
 
       - name: Upload build artifact (actions)
