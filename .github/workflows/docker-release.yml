@@ -24,6 +24,8 @@ env:
 jobs:
   # Build amd64 image
   build-amd64:
+    # Don't build/publish docker images for internal promoted tags like v2026.2.21-606-turq.1
+    if: ${{ !contains(github.ref_name, '-turq.') }}
     runs-on: blacksmith-16vcpu-ubuntu-2404
     permissions:
       packages: write
@@ -83,6 +85,8 @@ jobs:
 
   # Build arm64 image
   build-arm64:
+    # Don't build/publish docker images for internal promoted tags like v2026.2.21-606-turq.1
+    if: ${{ !contains(github.ref_name, '-turq.') }}
     runs-on: blacksmith-16vcpu-ubuntu-2404-arm
     permissions:
       packages: write
@@ -142,6 +146,8 @@ jobs:
 
   # Create multi-platform manifest
   create-manifest:
+    # Don't build/publish docker images for internal promoted tags like v2026.2.21-606-turq.1
+    if: ${{ !contains(github.ref_name, '-turq.') }}
     runs-on: blacksmith-16vcpu-ubuntu-2404
     permissions:
       packages: write
