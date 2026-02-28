@@ -59,6 +59,7 @@ cat _promoted_release/VERSION.json
 # Build tarball
 CONTENTS=(
   dist/
+  extensions/
   package.json
   pnpm-lock.yaml
   _promoted_release/VERSION.json
