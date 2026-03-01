@@ -60,6 +60,7 @@ cat _promoted_release/VERSION.json
 CONTENTS=(
   dist/
   extensions/
+  docs/
   package.json
   pnpm-lock.yaml
   _promoted_release/VERSION.json
