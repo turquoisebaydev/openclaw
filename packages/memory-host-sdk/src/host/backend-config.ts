@@ -61,6 +61,9 @@ export type ResolvedQmdMcporterConfig = {
 
 export type ResolvedQmdConfig = {
   command: string;
+  /** True when memory.qmd.command is a custom/remote wrapper rather than the bare "qmd" binary.
+   *  When true, the local SQLite index DB does not exist and direct DB reads must be skipped. */
+  isRemoteCommand: boolean;
   mcporter: ResolvedQmdMcporterConfig;
   searchMode: MemoryQmdSearchMode;
   searchTool?: string;
@@ -390,8 +393,13 @@ export function resolveMemoryBackendConfig(params: {
   const rawCommand = qmdCfg?.command?.trim() || "qmd";
   const parsedCommand = splitShellArgs(rawCommand);
   const command = parsedCommand?.[0] || rawCommand.split(/\s+/)[0] || "qmd";
+  // A "remote" command is anything other than the bare "qmd" binary: path separators,
+  // shell scripts, wrapper commands, etc. Remote commands manage their own index remotely
+  // so the local SQLite DB will not exist on this node.
+  const isRemoteCommand = command !== "qmd" && command !== "qmd.exe";
   const resolved: ResolvedQmdConfig = {
     command,
+    isRemoteCommand,
     mcporter: resolveMcporterConfig(qmdCfg?.mcporter),
     searchMode: resolveSearchMode(qmdCfg?.searchMode),
     searchTool: resolveSearchTool(qmdCfg?.searchTool),
