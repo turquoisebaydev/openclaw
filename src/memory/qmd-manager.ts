@@ -1828,6 +1828,15 @@ export class QmdMemoryManager implements MemorySearchManager {
     totalDocuments: number;
     sourceCounts: Array<{ source: MemorySource; files: number; chunks: number }>;
   } {
+    if (this.qmd.isRemoteCommand) {
+      // The local SQLite index DB does not exist when qmd is configured with a remote
+      // wrapper command — the index lives on the remote node. Skip the direct DB read.
+      log.debug("skipping local db read: qmd is configured with remote command");
+      return {
+        totalDocuments: 0,
+        sourceCounts: Array.from(this.sources).map((source) => ({ source, files: 0, chunks: 0 })),
+      };
+    }
     try {
       const db = this.ensureDb();
       const rows = db
