@@ -211,6 +211,50 @@ export type DiagnosticsConfig = {
   cacheTrace?: DiagnosticsCacheTraceConfig;
 };
 
+export type ObservabilityDomain =
+  | "run"
+  | "session"
+  | "queue"
+  | "llm"
+  | "tool"
+  | "fs"
+  | "exec"
+  | "web";
+
+export type ObservabilityCaptureMode = "off" | "summary" | "full";
+
+export type ObservabilityEventsConfig = {
+  enabled?: boolean;
+  /** Best-effort in-memory buffer size reserved for downstream sinks. */
+  bufferSize?: number;
+  /** Domain-level event toggles. Unspecified domains default to enabled. */
+  domains?: Partial<Record<ObservabilityDomain, boolean>>;
+  capture?: {
+    prompts?: ObservabilityCaptureMode;
+    toolArgs?: ObservabilityCaptureMode;
+    toolResults?: ObservabilityCaptureMode;
+    filePaths?: ObservabilityCaptureMode;
+    commands?: ObservabilityCaptureMode;
+    webQueries?: ObservabilityCaptureMode;
+  };
+  redaction?: {
+    enabled?: boolean;
+  };
+};
+
+export type ObservabilityLogsConfig = {
+  enabled?: boolean;
+  includeEventIds?: boolean;
+  format?: "tail" | "json";
+  filePath?: string;
+};
+
+export type ObservabilityConfig = {
+  enabled?: boolean;
+  events?: ObservabilityEventsConfig;
+  logs?: ObservabilityLogsConfig;
+};
+
 export type WebReconnectConfig = {
   initialMs?: number;
   maxMs?: number;

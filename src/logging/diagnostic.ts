@@ -1,6 +1,7 @@
 import { loadConfig } from "../config/config.js";
 import type { OpenClawConfig } from "../config/config.js";
 import { emitDiagnosticEvent } from "../infra/diagnostic-events.js";
+import { emitObservabilityEvent } from "../infra/observability-events.js";
 import {
   diagnosticSessionStates,
   getDiagnosticSessionState,
@@ -223,6 +224,18 @@ export function logSessionStateChange(
     reason: params.reason,
     queueDepth: state.queueDepth,
   });
+  emitObservabilityEvent({
+    domain: "session",
+    event: "state",
+    data: {
+      prevState,
+      state: params.state,
+      reason: params.reason,
+      queueDepth: state.queueDepth,
+    },
+    sessionId: state.sessionId,
+    sessionKey: state.sessionKey,
+  });
   markActivity();
 }
 
@@ -241,6 +254,17 @@ export function logSessionStuck(params: SessionRef & { state: SessionStateValue;
     ageMs: params.ageMs,
     queueDepth: state.queueDepth,
   });
+  emitObservabilityEvent({
+    domain: "session",
+    event: "stuck",
+    data: {
+      state: params.state,
+      ageMs: params.ageMs,
+      queueDepth: state.queueDepth,
+    },
+    sessionId: state.sessionId,
+    sessionKey: state.sessionKey,
+  });
   markActivity();
 }
 
@@ -250,6 +274,15 @@ export function logLaneEnqueue(lane: string, queueSize: number) {
     type: "queue.lane.enqueue",
     lane,
     queueSize,
+  });
+  emitObservabilityEvent({
+    domain: "queue",
+    event: "lane",
+    phase: "enqueue",
+    data: {
+      lane,
+      queueSize,
+    },
   });
   markActivity();
 }
@@ -261,6 +294,16 @@ export function logLaneDequeue(lane: string, waitMs: number, queueSize: number) 
     lane,
     queueSize,
     waitMs,
+  });
+  emitObservabilityEvent({
+    domain: "queue",
+    event: "lane",
+    phase: "dequeue",
+    data: {
+      lane,
+      queueSize,
+      waitMs,
+    },
   });
   markActivity();
 }
@@ -277,6 +320,17 @@ export function logRunAttempt(params: SessionRef & { runId: string; attempt: num
     sessionKey: params.sessionKey,
     runId: params.runId,
     attempt: params.attempt,
+  });
+  emitObservabilityEvent({
+    domain: "run",
+    event: "attempt",
+    phase: "start",
+    sessionId: params.sessionId,
+    sessionKey: params.sessionKey,
+    runId: params.runId,
+    data: {
+      attempt: params.attempt,
+    },
   });
   markActivity();
 }
