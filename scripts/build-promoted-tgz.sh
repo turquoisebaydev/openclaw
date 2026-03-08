@@ -79,7 +79,18 @@ fi
 
 echo ""
 echo "Packing $MODE artifact: $OUTFILE"
-tar czf "$OUTFILE" --transform "s|^|package/|" "${CONTENTS[@]}"
+
+# macOS BSD tar does not support --transform; use a temp staging dir instead.
+STAGE="$(mktemp -d)"
+trap 'rm -rf "$STAGE"' EXIT
+
+mkdir -p "$STAGE/package"
+for SRC in "${CONTENTS[@]}"; do
+  cp -r "$SRC" "$STAGE/package/"
+done
+
+# tar from the staging dir so all paths are under package/
+tar czf "$OUTFILE" -C "$STAGE" package/
 
 SIZE="$(du -h "$OUTFILE" | cut -f1)"
 echo "Done: $OUTFILE ($SIZE)"
