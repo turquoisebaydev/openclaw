@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { loadExtraBootstrapFiles } from "./workspace.js";
+import { loadExtraBootstrapFiles, loadExtraBootstrapFilesWithDiagnostics } from "./workspace.js";
 
 describe("loadExtraBootstrapFiles", () => {
   let fixtureRoot = "";
@@ -68,5 +68,32 @@ describe("loadExtraBootstrapFiles", () => {
     expect(files).toHaveLength(1);
     expect(files[0]?.name).toBe("AGENTS.md");
     expect(files[0]?.content).toBe("linked agents");
+  });
+
+  it("accepts PROFILE-*.md filenames (not blocked by allowlist)", async () => {
+    const workspaceDir = await createWorkspaceDir("profile");
+    await fs.writeFile(path.join(workspaceDir, "PROFILE-mini1.md"), "mini1 profile", "utf-8");
+
+    const files = await loadExtraBootstrapFiles(workspaceDir, ["PROFILE-mini1.md"]);
+
+    expect(files).toHaveLength(1);
+    expect(files[0]?.name).toBe("PROFILE-mini1.md");
+    expect(files[0]?.content).toBe("mini1 profile");
+  });
+
+  it("accepts multiple PROFILE-*.md files via glob patterns", async () => {
+    const workspaceDir = await createWorkspaceDir("profile-glob");
+    await fs.writeFile(path.join(workspaceDir, "PROFILE-mini1.md"), "mini1", "utf-8");
+    await fs.writeFile(path.join(workspaceDir, "PROFILE-mini2.md"), "mini2", "utf-8");
+    await fs.writeFile(path.join(workspaceDir, "PROFILE-test.md"), "test", "utf-8");
+
+    const files = await loadExtraBootstrapFiles(workspaceDir, ["PROFILE-*.md"]);
+
+    expect(files).toHaveLength(3);
+    expect(files.map((f) => f.name).toSorted()).toEqual([
+      "PROFILE-mini1.md",
+      "PROFILE-mini2.md",
+      "PROFILE-test.md",
+    ]);
   });
 });
