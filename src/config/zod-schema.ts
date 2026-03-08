@@ -239,6 +239,70 @@ export const OpenClawSchema = z
       })
       .strict()
       .optional(),
+    observability: z
+      .object({
+        enabled: z.boolean().optional(),
+        events: z
+          .object({
+            enabled: z.boolean().optional(),
+            bufferSize: z.number().int().positive().optional(),
+            domains: z
+              .object({
+                run: z.boolean().optional(),
+                session: z.boolean().optional(),
+                queue: z.boolean().optional(),
+                llm: z.boolean().optional(),
+                tool: z.boolean().optional(),
+                fs: z.boolean().optional(),
+                exec: z.boolean().optional(),
+                web: z.boolean().optional(),
+              })
+              .strict()
+              .optional(),
+            capture: z
+              .object({
+                prompts: z
+                  .union([z.literal("off"), z.literal("summary"), z.literal("full")])
+                  .optional(),
+                toolArgs: z
+                  .union([z.literal("off"), z.literal("summary"), z.literal("full")])
+                  .optional(),
+                toolResults: z
+                  .union([z.literal("off"), z.literal("summary"), z.literal("full")])
+                  .optional(),
+                filePaths: z
+                  .union([z.literal("off"), z.literal("summary"), z.literal("full")])
+                  .optional(),
+                commands: z
+                  .union([z.literal("off"), z.literal("summary"), z.literal("full")])
+                  .optional(),
+                webQueries: z
+                  .union([z.literal("off"), z.literal("summary"), z.literal("full")])
+                  .optional(),
+              })
+              .strict()
+              .optional(),
+            redaction: z
+              .object({
+                enabled: z.boolean().optional(),
+              })
+              .strict()
+              .optional(),
+          })
+          .strict()
+          .optional(),
+        logs: z
+          .object({
+            enabled: z.boolean().optional(),
+            includeEventIds: z.boolean().optional(),
+            format: z.union([z.literal("tail"), z.literal("json")]).optional(),
+            filePath: z.string().optional(),
+          })
+          .strict()
+          .optional(),
+      })
+      .strict()
+      .optional(),
     logging: z
       .object({
         level: LoggingLevelSchema.optional(),
