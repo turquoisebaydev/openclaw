@@ -6,7 +6,9 @@ import {
   resolveContextEngine,
 } from "../../context-engine/index.js";
 import { computeBackoff, sleepWithAbort, type BackoffPolicy } from "../../infra/backoff.js";
+import { emitObservabilityEvent } from "../../infra/observability-events.js";
 import { generateSecureToken } from "../../infra/secure-random.js";
+import { logRunAttempt } from "../../logging/diagnostic.js";
 import { getGlobalHookRunner } from "../../plugins/hook-runner-global.js";
 import type { PluginHookBeforeAgentStartResult } from "../../plugins/types.js";
 import { enqueueCommandInLane } from "../../process/command-queue.js";
@@ -65,6 +67,7 @@ import { runEmbeddedAttempt } from "./run/attempt.js";
 import { createFailoverDecisionLogger } from "./run/failover-observation.js";
 import type { RunEmbeddedPiAgentParams } from "./run/params.js";
 import { buildEmbeddedRunPayloads } from "./run/payloads.js";
+import type { EmbeddedRunAttemptResult } from "./run/types.js";
 import {
   truncateOversizedToolResultsInSession,
   sessionLikelyHasOversizedToolResults,
@@ -96,6 +99,13 @@ const OVERLOAD_FAILOVER_BACKOFF_POLICY: BackoffPolicy = {
 // Avoid Anthropic's refusal test token poisoning session transcripts.
 const ANTHROPIC_MAGIC_STRING_TRIGGER_REFUSAL = "ANTHROPIC_MAGIC_STRING_TRIGGER_REFUSAL";
 const ANTHROPIC_MAGIC_STRING_REPLACEMENT = "ANTHROPIC MAGIC STRING TRIGGER REFUSAL (redacted)";
+
+function summarizeObservabilityError(err: unknown): string {
+  if (err instanceof Error) {
+    return err.message || err.name;
+  }
+  return typeof err === "string" ? err : String(err);
+}
 
 function scrubAnthropicRefusalMagic(prompt: string): string {
   if (!prompt.includes(ANTHROPIC_MAGIC_STRING_TRIGGER_REFUSAL)) {
@@ -848,7 +858,7 @@ export async function runEmbeddedPiAgent(
           const prompt =
             provider === "anthropic" ? scrubAnthropicRefusalMagic(params.prompt) : params.prompt;
 
-          const attempt = await runEmbeddedAttempt({
+          logRunAttempt({
             sessionId: params.sessionId,
             sessionKey: params.sessionKey,
             trigger: params.trigger,
@@ -900,28 +910,135 @@ export async function runEmbeddedPiAgent(
             bashElevated: params.bashElevated,
             timeoutMs: params.timeoutMs,
             runId: params.runId,
-            abortSignal: params.abortSignal,
-            shouldEmitToolResult: params.shouldEmitToolResult,
-            shouldEmitToolOutput: params.shouldEmitToolOutput,
-            onPartialReply: params.onPartialReply,
-            onAssistantMessageStart: params.onAssistantMessageStart,
-            onBlockReply: params.onBlockReply,
-            onBlockReplyFlush: params.onBlockReplyFlush,
-            blockReplyBreak: params.blockReplyBreak,
-            blockReplyChunking: params.blockReplyChunking,
-            onReasoningStream: params.onReasoningStream,
-            onReasoningEnd: params.onReasoningEnd,
-            onToolResult: params.onToolResult,
-            onAgentEvent: params.onAgentEvent,
-            extraSystemPrompt: params.extraSystemPrompt,
-            inputProvenance: params.inputProvenance,
-            streamParams: params.streamParams,
-            ownerNumbers: params.ownerNumbers,
-            enforceFinalTag: params.enforceFinalTag,
-            bootstrapPromptWarningSignaturesSeen,
-            bootstrapPromptWarningSignature:
-              bootstrapPromptWarningSignaturesSeen[bootstrapPromptWarningSignaturesSeen.length - 1],
+            attempt: runLoopIterations,
           });
+          const attemptStartedAt = Date.now();
+          emitObservabilityEvent({
+            domain: "llm",
+            event: "call",
+            phase: "start",
+            runId: params.runId,
+            sessionId: params.sessionId,
+            sessionKey: params.sessionKey,
+            agentId: workspaceResolution.agentId,
+            data: {
+              provider,
+              model: modelId,
+              attempt: runLoopIterations,
+              authProfileId: lastProfileId,
+              authProfileIdSource: lockedProfileId ? "user" : "auto",
+              prompt: {
+                chars: prompt.length,
+                images: params.images?.length ?? 0,
+              },
+            },
+          });
+
+          let attempt: EmbeddedRunAttemptResult;
+          try {
+            attempt = await runEmbeddedAttempt({
+              sessionId: params.sessionId,
+              sessionKey: params.sessionKey,
+              trigger: params.trigger,
+              messageChannel: params.messageChannel,
+              messageProvider: params.messageProvider,
+              agentAccountId: params.agentAccountId,
+              messageTo: params.messageTo,
+              messageThreadId: params.messageThreadId,
+              groupId: params.groupId,
+              groupChannel: params.groupChannel,
+              groupSpace: params.groupSpace,
+              spawnedBy: params.spawnedBy,
+              senderId: params.senderId,
+              senderName: params.senderName,
+              senderUsername: params.senderUsername,
+              senderE164: params.senderE164,
+              senderIsOwner: params.senderIsOwner,
+              currentChannelId: params.currentChannelId,
+              currentThreadTs: params.currentThreadTs,
+              currentMessageId: params.currentMessageId,
+              replyToMode: params.replyToMode,
+              hasRepliedRef: params.hasRepliedRef,
+              sessionFile: params.sessionFile,
+              workspaceDir: resolvedWorkspace,
+              agentDir,
+              config: params.config,
+              contextEngine,
+              contextTokenBudget: ctxInfo.tokens,
+              skillsSnapshot: params.skillsSnapshot,
+              prompt,
+              images: params.images,
+              disableTools: params.disableTools,
+              provider,
+              modelId,
+              model: effectiveModel,
+              authProfileId: lastProfileId,
+              authProfileIdSource: lockedProfileId ? "user" : "auto",
+              authStorage,
+              modelRegistry,
+              agentId: workspaceResolution.agentId,
+              legacyBeforeAgentStartResult,
+              thinkLevel,
+              verboseLevel: params.verboseLevel,
+              reasoningLevel: params.reasoningLevel,
+              toolResultFormat: resolvedToolResultFormat,
+              execOverrides: params.execOverrides,
+              bashElevated: params.bashElevated,
+              timeoutMs: params.timeoutMs,
+              runId: params.runId,
+              abortSignal: params.abortSignal,
+              shouldEmitToolResult: params.shouldEmitToolResult,
+              shouldEmitToolOutput: params.shouldEmitToolOutput,
+              onPartialReply: params.onPartialReply,
+              onAssistantMessageStart: params.onAssistantMessageStart,
+              onBlockReply: params.onBlockReply,
+              onBlockReplyFlush: params.onBlockReplyFlush,
+              blockReplyBreak: params.blockReplyBreak,
+              blockReplyChunking: params.blockReplyChunking,
+              onReasoningStream: params.onReasoningStream,
+              onReasoningEnd: params.onReasoningEnd,
+              onToolResult: params.onToolResult,
+              onAgentEvent: params.onAgentEvent,
+              extraSystemPrompt: params.extraSystemPrompt,
+              inputProvenance: params.inputProvenance,
+              streamParams: params.streamParams,
+              ownerNumbers: params.ownerNumbers,
+              enforceFinalTag: params.enforceFinalTag,
+              bootstrapPromptWarningSignaturesSeen,
+              bootstrapPromptWarningSignature:
+                bootstrapPromptWarningSignaturesSeen[
+                  bootstrapPromptWarningSignaturesSeen.length - 1
+                ],
+            });
+          } catch (err) {
+            emitObservabilityEvent({
+              domain: "llm",
+              event: "call",
+              phase: "error",
+              runId: params.runId,
+              sessionId: params.sessionId,
+              sessionKey: params.sessionKey,
+              agentId: workspaceResolution.agentId,
+              status:
+                params.abortSignal?.aborted || (err instanceof Error && err.name === "AbortError")
+                  ? "aborted"
+                  : "error",
+              durationMs: Date.now() - attemptStartedAt,
+              error: summarizeObservabilityError(err),
+              data: {
+                provider,
+                model: modelId,
+                attempt: runLoopIterations,
+                authProfileId: lastProfileId,
+                authProfileIdSource: lockedProfileId ? "user" : "auto",
+                prompt: {
+                  chars: prompt.length,
+                  images: params.images?.length ?? 0,
+                },
+              },
+            });
+            throw err;
+          }
 
           const {
             aborted,
@@ -967,6 +1084,50 @@ export async function runEmbeddedPiAgent(
             lastAssistant?.stopReason === "error"
               ? lastAssistant.errorMessage?.trim() || formattedAssistantErrorText
               : undefined;
+          emitObservabilityEvent({
+            domain: "llm",
+            event: "call",
+            phase: promptError || assistantErrorText ? "error" : "end",
+            runId: params.runId,
+            sessionId: sessionIdUsed,
+            sessionKey: params.sessionKey,
+            agentId: workspaceResolution.agentId,
+            status: aborted
+              ? "aborted"
+              : timedOut
+                ? "timeout"
+                : promptError || assistantErrorText
+                  ? "error"
+                  : "ok",
+            durationMs: Date.now() - attemptStartedAt,
+            error: promptError ? describeUnknownError(promptError) : assistantErrorText,
+            data: {
+              provider: lastAssistant?.provider ?? provider,
+              model: lastAssistant?.model ?? model.id,
+              attempt: runLoopIterations,
+              authProfileId: lastProfileId,
+              authProfileIdSource: lockedProfileId ? "user" : "auto",
+              stopReason: attempt.clientToolCall
+                ? "tool_calls"
+                : (lastAssistant?.stopReason as string | undefined),
+              timedOut,
+              aborted,
+              prompt: {
+                chars: prompt.length,
+                images: params.images?.length ?? 0,
+              },
+              usage: attemptUsage
+                ? {
+                    input: attemptUsage.input,
+                    output: attemptUsage.output,
+                    total: attemptUsage.total,
+                    cacheRead: attemptUsage.cacheRead,
+                    cacheWrite: attemptUsage.cacheWrite,
+                  }
+                : undefined,
+              compactionCount: attemptCompactionCount > 0 ? attemptCompactionCount : undefined,
+            },
+          });
 
           const contextOverflowError = !aborted
             ? (() => {
