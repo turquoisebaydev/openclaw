@@ -79,7 +79,7 @@ fi
 
 echo ""
 echo "Packing $MODE artifact: $OUTFILE"
-tar czf "$OUTFILE" "${CONTENTS[@]}"
+tar czf "$OUTFILE" --transform "s|^|package/|" "${CONTENTS[@]}"
 
 SIZE="$(du -h "$OUTFILE" | cut -f1)"
 echo "Done: $OUTFILE ($SIZE)"
