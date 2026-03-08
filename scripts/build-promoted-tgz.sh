@@ -86,7 +86,13 @@ trap 'rm -rf "$STAGE"' EXIT
 
 mkdir -p "$STAGE/package"
 for SRC in "${CONTENTS[@]}"; do
-  cp -r "$SRC" "$STAGE/package/"
+  DEST="$STAGE/package/"
+  if [[ -d "$SRC" ]]; then
+    # Use rsync to copy directories, excluding nested node_modules (avoids cycles in extensions/).
+    rsync -a --exclude='node_modules' "$SRC" "$DEST"
+  else
+    cp "$SRC" "$DEST"
+  fi
 done
 
 # tar from the staging dir so all paths are under package/
