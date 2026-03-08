@@ -37,6 +37,18 @@ export const FIELD_HELP: Record<string, string> = {
     "OpenTelemetry export settings for traces, metrics, and logs emitted by gateway components. Use this when integrating with centralized observability backends and distributed tracing pipelines.",
   "diagnostics.cacheTrace":
     "Cache-trace logging settings for observing cache decisions and payload context in embedded runs. Enable this temporarily for debugging and disable afterward to reduce sensitive log footprint.",
+  observability:
+    "Runtime observability controls for structured execution events and troubleshooting-focused logs that can feed live monitoring sinks later. Use this to tune event volume, capture detail, and correlation metadata without coupling core runtime to any specific transport.",
+  "observability.events":
+    "Structured in-process runtime event stream controls for execution telemetry emitted by the gateway. Enable targeted domains first and expand capture depth only when the added monitoring value justifies the extra data volume.",
+  "observability.events.domains":
+    "Per-domain runtime event toggles that let you selectively emit telemetry for major execution surfaces. Enable only the domains you need during rollout to keep event noise and storage costs under control.",
+  "observability.events.capture":
+    "Capture-depth policy for runtime event payload fields that may otherwise be large or sensitive. Prefer summary mode by default, then temporarily raise individual fields to full only for focused debugging sessions.",
+  "observability.events.redaction":
+    "Runtime event redaction policy for masking sensitive values before they leave the core event bus or structured log output. Keep enabled unless you are debugging in an isolated environment with tightly controlled access to raw event streams.",
+  "observability.logs":
+    "Structured troubleshooting log controls aligned with runtime event correlation keys. Use this to keep machine-readable logs useful for incident response even before external event sinks are added.",
   logging:
     "Logging behavior controls for severity, output destinations, formatting, and sensitive-data redaction. Keep levels and redaction strict enough for production while preserving useful diagnostics.",
   "logging.level":
@@ -512,6 +524,50 @@ export const FIELD_HELP: Record<string, string> = {
     "Include full message payloads in trace output (default: true).",
   "diagnostics.cacheTrace.includePrompt": "Include prompt text in trace output (default: true).",
   "diagnostics.cacheTrace.includeSystem": "Include system prompt in trace output (default: true).",
+  "observability.enabled":
+    "Master toggle for runtime observability features including structured events and correlated troubleshooting logs. Keep enabled when building monitoring, and disable only if you need the smallest possible instrumentation footprint.",
+  "observability.events.enabled":
+    "Enables emission of structured runtime events onto the internal observability bus. Keep enabled for live dashboards and incident timelines, and disable only when you want observability limited to traditional logs.",
+  "observability.events.bufferSize":
+    "Maximum buffered event count reserved for downstream observability listeners before older items must be dropped or ignored. Use a bounded size large enough for bursty turns without letting monitoring paths pressure the core runtime.",
+  "observability.events.domains.run":
+    "Emit run-level execution events such as attempt lifecycle and terminal status changes. Keep enabled to correlate end-user turns with downstream LLM and tool activity.",
+  "observability.events.domains.session":
+    "Emit session state and stuck-session events for monitoring routing health and blocked conversations. Keep enabled when you need dashboards or alerts around hung sessions and queue buildup.",
+  "observability.events.domains.queue":
+    "Emit command-queue lane activity events including enqueue and dequeue timing. Use this to spot contention, starvation, or serial bottlenecks across runtime lanes.",
+  "observability.events.domains.llm":
+    "Emit outbound LLM call attempt events with provider/model/profile, timing, and terminal status fields. Keep enabled when debugging model latency, auth rotation, or provider-specific failures.",
+  "observability.events.domains.tool":
+    "Emit tool lifecycle events for calls made by embedded runs, including timing and summarized inputs/results. Use this to trace which tools were invoked during a turn without depending on free-form logs.",
+  "observability.events.domains.fs":
+    "Reserve filesystem activity events for file access instrumentation as that coverage is added. Leave disabled until filesystem event emitters are enabled in the runtime.",
+  "observability.events.domains.exec":
+    "Reserve command execution activity events for exec/bash instrumentation as that coverage is added. Leave disabled until command execution emitters are enabled in the runtime.",
+  "observability.events.domains.web":
+    "Reserve web/search activity events for browser and retrieval instrumentation as that coverage is added. Leave disabled until those emitters are implemented in the runtime.",
+  "observability.events.capture.prompts":
+    'Prompt capture depth for LLM runtime events: "off" omits prompt content metrics, "summary" records high-level sizes only, and "full" allows richer prompt payload capture when explicitly needed for debugging. Use summary by default unless an incident requires deeper capture.',
+  "observability.events.capture.toolArgs":
+    'Tool-argument capture depth for runtime events: "off" omits tool input payloads, "summary" records condensed metadata, and "full" allows detailed argument capture for troubleshooting. Use summary by default to keep events useful without oversharing payloads.',
+  "observability.events.capture.toolResults":
+    'Tool-result capture depth for runtime events: "off" omits returned payload details, "summary" records concise result metadata, and "full" allows detailed result capture where safe. Use full only in controlled debugging sessions where larger payloads are justified.',
+  "observability.events.capture.filePaths":
+    'Filesystem-path capture depth for runtime events: "off" hides path details, "summary" emits coarse path metadata, and "full" keeps full paths for precise debugging where policy allows it. Use summary when operators need path context without exposing every exact path.',
+  "observability.events.capture.commands":
+    'Command-text capture depth for exec-related runtime events: "off" omits command text, "summary" records compact command previews, and "full" keeps the full command text for deep troubleshooting. Use summary in most environments and reserve full capture for isolated incident work.',
+  "observability.events.capture.webQueries":
+    'Web-query capture depth for retrieval-related runtime events: "off" omits query text, "summary" records concise search metadata, and "full" keeps the full query payload for debugging search behavior. Use summary unless exact query text is required to reproduce retrieval issues.',
+  "observability.events.redaction.enabled":
+    "When true, apply built-in redaction before runtime events or structured observability logs expose potentially sensitive values. Keep enabled for shared environments, dashboards, and retained telemetry stores.",
+  "observability.logs.enabled":
+    "Enables structured observability-oriented log lines in addition to the runtime event bus. Use this when you want durable troubleshooting trails even before external event consumers are attached.",
+  "observability.logs.includeEventIds":
+    "Attach observability event identifiers to structured log lines so logs can be correlated back to live event consumers and timeline views. Keep enabled when building incident workflows that cross logs and dashboards.",
+  "observability.logs.format":
+    'Observability log projection format: "tail" writes compact single-line records for live tailing, while "json" writes one JSON object per event. Use tail when watching live runtime activity in a terminal and json when another machine consumer needs direct log parsing.',
+  "observability.logs.filePath":
+    "Filesystem path for the dedicated observability mirror log file. Use an explicit writable path when you want `tail -f` monitoring to target a stable file separate from the main application log.",
   "tools.exec.applyPatch.enabled":
     "Experimental. Enables apply_patch for OpenAI models when allowed by tool policy.",
   "tools.exec.applyPatch.workspaceOnly":

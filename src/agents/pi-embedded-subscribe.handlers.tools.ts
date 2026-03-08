@@ -4,6 +4,7 @@ import {
   buildExecApprovalPendingReplyPayload,
   buildExecApprovalUnavailableReplyPayload,
 } from "../infra/exec-approval-reply.js";
+import { emitObservabilityEvent } from "../infra/observability-events.js";
 import { getGlobalHookRunner } from "../plugins/hook-runner-global.js";
 import type { PluginHookAfterToolCallEvent } from "../plugins/types.js";
 import { normalizeTextForComparison } from "./pi-embedded-helpers.js";
@@ -295,6 +296,47 @@ async function emitToolResultOutput(params: {
   }
 }
 
+function summarizeString(value: string, maxChars = 160): string {
+  return value.length <= maxChars ? value : `${value.slice(0, maxChars)}...`;
+}
+
+function summarizeToolPayload(value: unknown): Record<string, unknown> {
+  if (value == null) {
+    return { kind: "null" };
+  }
+  if (typeof value === "string") {
+    return {
+      kind: "string",
+      chars: value.length,
+      preview: summarizeString(value),
+    };
+  }
+  if (typeof value === "number" || typeof value === "boolean") {
+    return { kind: typeof value, value };
+  }
+  if (Array.isArray(value)) {
+    return {
+      kind: "array",
+      length: value.length,
+    };
+  }
+  if (typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    const summary: Record<string, unknown> = {
+      kind: "object",
+      keys: Object.keys(record).slice(0, 12),
+    };
+    for (const key of ["action", "path", "file_path", "command", "cmd", "query", "url"]) {
+      const item = record[key];
+      if (typeof item === "string" && item.trim()) {
+        summary[key] = summarizeString(item.trim(), 120);
+      }
+    }
+    return summary;
+  }
+  return { kind: typeof value };
+}
+
 export async function handleToolExecutionStart(
   ctx: ToolHandlerContext,
   evt: AgentEvent & { toolName: string; toolCallId: string; args: unknown },
@@ -352,6 +394,21 @@ export async function handleToolExecutionStart(
   void ctx.params.onAgentEvent?.({
     stream: "tool",
     data: { phase: "start", name: toolName, toolCallId },
+  });
+  emitObservabilityEvent({
+    domain: "tool",
+    event: "call",
+    phase: "start",
+    runId,
+    sessionId: ctx.params.sessionId,
+    sessionKey: ctx.params.sessionKey,
+    agentId: ctx.params.agentId,
+    data: {
+      toolName,
+      toolCallId,
+      meta,
+      argsSummary: summarizeToolPayload(args),
+    },
   });
 
   if (
@@ -415,6 +472,20 @@ export function handleToolExecutionUpdate(
       phase: "update",
       name: toolName,
       toolCallId,
+    },
+  });
+  emitObservabilityEvent({
+    domain: "tool",
+    event: "call",
+    phase: "update",
+    runId: ctx.params.runId,
+    sessionId: ctx.params.sessionId,
+    sessionKey: ctx.params.sessionKey,
+    agentId: ctx.params.agentId,
+    data: {
+      toolName,
+      toolCallId,
+      resultSummary: summarizeToolPayload(sanitized),
     },
   });
 }
@@ -499,6 +570,7 @@ export async function handleToolExecutionEnd(
     adjustedArgs && typeof adjustedArgs === "object"
       ? (adjustedArgs as Record<string, unknown>)
       : startArgs;
+  const durationMs = startData?.startTime != null ? Date.now() - startData.startTime : undefined;
   const isMessagingSend =
     pendingMediaUrls.length > 0 ||
     (isMessagingTool(toolName) && isMessagingToolSendAction(toolName, startArgs));
@@ -540,6 +612,25 @@ export async function handleToolExecutionEnd(
       isError: isToolError,
     },
   });
+  emitObservabilityEvent({
+    domain: "tool",
+    event: "call",
+    phase: "end",
+    runId,
+    sessionId: ctx.params.sessionId,
+    sessionKey: ctx.params.sessionKey,
+    agentId: ctx.params.agentId,
+    status: isToolError ? "error" : "ok",
+    durationMs,
+    error: isToolError ? extractToolErrorMessage(sanitizedResult) : undefined,
+    data: {
+      toolName,
+      toolCallId,
+      meta,
+      argsSummary: summarizeToolPayload(afterToolCallArgs),
+      resultSummary: summarizeToolPayload(sanitizedResult),
+    },
+  });
 
   ctx.log.debug(
     `embedded run tool end: runId=${ctx.params.runId} tool=${toolName} toolCallId=${toolCallId}`,
@@ -550,7 +641,6 @@ export async function handleToolExecutionEnd(
   // Run after_tool_call plugin hook (fire-and-forget)
   const hookRunnerAfter = ctx.hookRunner ?? getGlobalHookRunner();
   if (hookRunnerAfter?.hasHooks("after_tool_call")) {
-    const durationMs = startData?.startTime != null ? Date.now() - startData.startTime : undefined;
     const hookEvent: PluginHookAfterToolCallEvent = {
       toolName,
       params: afterToolCallArgs,
