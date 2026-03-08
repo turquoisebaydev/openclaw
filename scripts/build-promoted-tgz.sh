@@ -86,12 +86,16 @@ trap 'rm -rf "$STAGE"' EXIT
 
 mkdir -p "$STAGE/package"
 for SRC in "${CONTENTS[@]}"; do
+  # Strip trailing slash so basename works correctly and rsync copies the dir itself (not its contents).
+  SRC="${SRC%/}"
   DEST="$STAGE/package/"
   if [[ -d "$SRC" ]]; then
     # Use rsync to copy directories, excluding nested node_modules (avoids cycles in extensions/).
     rsync -a --exclude='node_modules' "$SRC" "$DEST"
   else
-    cp "$SRC" "$DEST"
+    # For files like _promoted_release/VERSION.json, ensure parent dir exists.
+    mkdir -p "$DEST$(dirname "$SRC")"
+    cp "$SRC" "$DEST$SRC"
   fi
 done
 
