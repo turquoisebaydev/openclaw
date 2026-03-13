@@ -730,7 +730,7 @@ async function agentCommandInternal(
   } = prepared;
   let sessionEntry = prepared.sessionEntry;
   const runTask = buildAgentTaskMetadata({
-    prompt: body,
+    prompt: opts.message ?? body,
     label: opts.label,
     activity: opts.deliver === true ? "deliver" : "direct",
     cwd: workspaceDir,
@@ -861,7 +861,7 @@ async function agentCommandInternal(
           threadId: opts.threadId,
           sessionCwd: resolveAcpSessionCwd(acpResolution.meta) ?? workspaceDir,
           task: buildAgentTaskMetadata({
-            prompt: body,
+            prompt: opts.message ?? body,
             label: opts.label,
             activity: "acp",
             cwd: resolveAcpSessionCwd(acpResolution.meta) ?? workspaceDir,
