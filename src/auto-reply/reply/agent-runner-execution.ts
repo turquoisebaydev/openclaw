@@ -15,6 +15,7 @@ import {
   sanitizeUserFacingText,
 } from "../../agents/pi-embedded-helpers.js";
 import { runEmbeddedPiAgent } from "../../agents/pi-embedded.js";
+import { buildAgentTaskMetadata } from "../../commands/agent/task-metadata.js";
 import {
   resolveGroupSessionKey,
   resolveSessionTranscriptPath,
@@ -133,6 +134,11 @@ export async function runAgentTurnWithFallback(params: {
       verboseLevel: params.resolvedVerboseLevel,
       isHeartbeat: params.isHeartbeat,
       isControlUiVisible: shouldSurfaceToControlUi,
+      task: buildAgentTaskMetadata({
+        prompt: params.commandBody,
+        activity: params.isHeartbeat ? "heartbeat" : "direct",
+        cwd: params.followupRun.run.workspaceDir,
+      }),
     });
   }
   let runResult: Awaited<ReturnType<typeof runEmbeddedPiAgent>>;

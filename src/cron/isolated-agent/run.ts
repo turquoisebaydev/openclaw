@@ -39,6 +39,7 @@ import {
   supportsXHighThinking,
 } from "../../auto-reply/thinking.js";
 import type { CliDeps } from "../../cli/outbound-send-deps.js";
+import { buildAgentTaskMetadata } from "../../commands/agent/task-metadata.js";
 import type { OpenClawConfig } from "../../config/config.js";
 import {
   resolveSessionTranscriptPath,
@@ -528,6 +529,12 @@ export async function runCronIsolatedAgentTurn(params: {
   let runResult: Awaited<ReturnType<typeof runEmbeddedPiAgent>> | undefined;
   let fallbackProvider = provider;
   let fallbackModel = model;
+  const runTask = buildAgentTaskMetadata({
+    prompt: prompt,
+    label: params.job.name,
+    activity: "cron",
+    cwd: cronSession.workspaceDir,
+  });
   const runStartedAt = Date.now();
   let runEndedAt = runStartedAt;
   try {
@@ -539,6 +546,7 @@ export async function runCronIsolatedAgentTurn(params: {
     registerAgentRunContext(cronSession.sessionEntry.sessionId, {
       sessionKey: agentSessionKey,
       verboseLevel: resolvedVerboseLevel,
+      task: runTask,
     });
     const messageChannel = resolvedDelivery.channel;
     // Per-job payload.fallbacks takes priority over agent-level fallbacks.
@@ -712,6 +720,13 @@ export async function runCronIsolatedAgentTurn(params: {
   {
     if (finalRunResult.meta?.systemPromptReport) {
       cronSession.sessionEntry.systemPromptReport = finalRunResult.meta.systemPromptReport;
+    }
+    if (runTask) {
+      cronSession.sessionEntry.summary = runTask.summary;
+      cronSession.sessionEntry.activity = runTask.activity;
+      cronSession.sessionEntry.cwd = runTask.cwd;
+      cronSession.sessionEntry.cmdline = runTask.cmdline;
+      cronSession.sessionEntry.url = runTask.url;
     }
     const usage = finalRunResult.meta?.agentMeta?.usage;
     const promptTokens = finalRunResult.meta?.agentMeta?.promptTokens;

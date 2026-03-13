@@ -64,6 +64,46 @@ describe("updateSessionStoreAfterAgentRun", () => {
     expect(staleInMemory[sessionKey]?.acp).toBeDefined();
   });
 
+  it("persists task metadata for session snapshots", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-session-store-"));
+    const storePath = path.join(dir, "sessions.json");
+    const sessionKey = `agent:main:${randomUUID()}`;
+    const sessionId = randomUUID();
+
+    const sessionStore: Record<string, SessionEntry> = {
+      [sessionKey]: {
+        sessionId,
+        updatedAt: Date.now(),
+      },
+    };
+    await fs.writeFile(storePath, JSON.stringify(sessionStore, null, 2), "utf8");
+
+    await updateSessionStoreAfterAgentRun({
+      cfg: {} as never,
+      sessionId,
+      sessionKey,
+      storePath,
+      sessionStore,
+      defaultProvider: "openai",
+      defaultModel: "gpt-5.3-codex",
+      task: { summary: "ship dashboard", activity: "direct", cwd: "/tmp/ws" },
+      result: {
+        payloads: [],
+        meta: {
+          agentMeta: {
+            provider: "openai",
+            model: "gpt-5.3-codex",
+          },
+        },
+      } as never,
+    });
+
+    const persisted = loadSessionStore(storePath, { skipCache: true })[sessionKey];
+    expect(persisted?.summary).toBe("ship dashboard");
+    expect(persisted?.activity).toBe("direct");
+    expect(persisted?.cwd).toBe("/tmp/ws");
+  });
+
   it("persists latest systemPromptReport for downstream warning dedupe", async () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-session-store-"));
     const storePath = path.join(dir, "sessions.json");

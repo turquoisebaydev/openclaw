@@ -29,6 +29,11 @@ export type SessionDisplayRow = {
   providerOverride?: string;
   modelOverride?: string;
   contextTokens?: number;
+  summary?: string;
+  activity?: string;
+  cwd?: string;
+  cmdline?: string;
+  url?: string;
 };
 
 export type SessionDisplayDefaults = {
@@ -65,6 +70,11 @@ export function toSessionDisplayRows(store: Record<string, SessionEntry>): Sessi
         providerOverride: entry?.providerOverride,
         modelOverride: entry?.modelOverride,
         contextTokens: entry?.contextTokens,
+        summary: entry?.summary,
+        activity: entry?.activity,
+        cwd: entry?.cwd,
+        cmdline: entry?.cmdline,
+        url: entry?.url,
       } satisfies SessionDisplayRow;
     })
     .toSorted((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0));
