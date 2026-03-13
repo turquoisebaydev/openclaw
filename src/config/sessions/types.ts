@@ -177,6 +177,11 @@ export type SessionEntry = {
   claudeCliSessionId?: string;
   label?: string;
   displayName?: string;
+  summary?: string;
+  activity?: string;
+  cwd?: string;
+  cmdline?: string;
+  url?: string;
   channel?: string;
   groupId?: string;
   subject?: string;

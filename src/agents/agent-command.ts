@@ -62,6 +62,7 @@ import { deliverAgentCommandResult } from "./command/delivery.js";
 import { resolveAgentRunContext } from "./command/run-context.js";
 import { updateSessionStoreAfterAgentRun } from "./command/session-store.js";
 import { resolveSession } from "./command/session.js";
+import { buildAgentTaskMetadata } from "./command/task-metadata.js";
 import type { AgentCommandIngressOpts, AgentCommandOpts } from "./command/types.js";
 import { DEFAULT_MODEL, DEFAULT_PROVIDER } from "./defaults.js";
 import { AGENT_LANE_SUBAGENT } from "./lanes.js";
@@ -356,6 +357,12 @@ async function agentCommandInternal(
     acpResolution,
   } = prepared;
   let sessionEntry = prepared.sessionEntry;
+  const runTask = buildAgentTaskMetadata({
+    prompt: body,
+    label: opts.label,
+    activity: opts.deliver === true ? "deliver" : "direct",
+    cwd: workspaceDir,
+  });
 
   try {
     if (opts.deliver === true) {
@@ -379,6 +386,7 @@ async function agentCommandInternal(
       const startedAt = Date.now();
       registerAgentRunContext(runId, {
         sessionKey,
+        task: runTask,
       });
       emitAcpLifecycleStart({ runId, startedAt });
 
@@ -458,6 +466,12 @@ async function agentCommandInternal(
           sessionAgentId,
           threadId: opts.threadId,
           sessionCwd: resolveAcpSessionCwd(acpResolution.meta) ?? workspaceDir,
+          task: buildAgentTaskMetadata({
+            prompt: body,
+            label: opts.label,
+            activity: "acp",
+            cwd: resolveAcpSessionCwd(acpResolution.meta) ?? workspaceDir,
+          }),
         });
       } catch (error) {
         log.warn(
@@ -493,6 +507,7 @@ async function agentCommandInternal(
       registerAgentRunContext(runId, {
         sessionKey,
         verboseLevel: resolvedVerboseLevel,
+        task: runTask,
       });
     }
 
@@ -847,6 +862,7 @@ async function agentCommandInternal(
         defaultModel: model,
         fallbackProvider,
         fallbackModel,
+        task: runTask,
         result,
       });
     }

@@ -1240,6 +1240,11 @@ export function buildGatewaySessionRow(params: {
     lastTo: deliveryFields.lastTo ?? entry?.lastTo,
     lastAccountId: deliveryFields.lastAccountId ?? entry?.lastAccountId,
     lastThreadId: deliveryFields.lastThreadId ?? entry?.lastThreadId,
+    summary: entry?.summary,
+    activity: entry?.activity,
+    cwd: entry?.cwd,
+    cmdline: entry?.cmdline,
+    url: entry?.url,
   };
 }
 

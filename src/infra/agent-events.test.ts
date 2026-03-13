@@ -70,6 +70,25 @@ describe("agent-events sequencing", () => {
     expect(phases).toEqual(["start", "end"]);
   });
 
+  test("merges task metadata from run context into emitted events", async () => {
+    resetAgentRunContextForTest();
+    registerAgentRunContext("run-task", {
+      sessionKey: "main",
+      task: { summary: "debug dashboard", cwd: "/tmp/work" },
+    });
+
+    let receivedTask: Record<string, unknown> | undefined;
+    const stop = onAgentEvent((evt) => {
+      if (evt.runId === "run-task") {
+        receivedTask = evt.data.task as Record<string, unknown> | undefined;
+      }
+    });
+    emitAgentEvent({ runId: "run-task", stream: "lifecycle", data: { phase: "start" } });
+    stop();
+
+    expect(receivedTask).toEqual({ summary: "debug dashboard", cwd: "/tmp/work" });
+  });
+
   test("omits sessionKey for runs hidden from Control UI", async () => {
     resetAgentRunContextForTest();
     registerAgentRunContext("run-hidden", {
