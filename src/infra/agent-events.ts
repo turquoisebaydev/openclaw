@@ -4,6 +4,14 @@ import { notifyListeners, registerListener } from "../shared/listeners.js";
 
 export type AgentEventStream = "lifecycle" | "tool" | "assistant" | "error" | (string & {});
 
+export type AgentTaskMetadata = {
+  summary?: string;
+  activity?: string;
+  cwd?: string;
+  cmdline?: string;
+  url?: string;
+};
+
 export type AgentEventPayload = {
   runId: string;
   seq: number;
@@ -17,6 +25,7 @@ export type AgentRunContext = {
   sessionKey?: string;
   verboseLevel?: VerboseLevel;
   isHeartbeat?: boolean;
+  task?: AgentTaskMetadata;
   /** Whether control UI clients should receive chat/agent updates for this run. */
   isControlUiVisible?: boolean;
 };
@@ -56,6 +65,12 @@ export function registerAgentRunContext(runId: string, context: AgentRunContext)
   if (context.isHeartbeat !== undefined && existing.isHeartbeat !== context.isHeartbeat) {
     existing.isHeartbeat = context.isHeartbeat;
   }
+  if (context.task) {
+    existing.task = {
+      ...existing.task,
+      ...Object.fromEntries(Object.entries(context.task).filter(([, value]) => Boolean(value))),
+    };
+  }
 }
 
 export function getAgentRunContext(runId: string) {
@@ -78,8 +93,24 @@ export function emitAgentEvent(event: Omit<AgentEventPayload, "seq" | "ts">) {
   const eventSessionKey =
     typeof event.sessionKey === "string" && event.sessionKey.trim() ? event.sessionKey : undefined;
   const sessionKey = isControlUiVisible ? (eventSessionKey ?? context?.sessionKey) : undefined;
+  const eventTask =
+    event.data && typeof event.data.task === "object"
+      ? (event.data.task as Record<string, unknown>)
+      : undefined;
+  const contextTask = context?.task;
+  const mergedTask =
+    contextTask || eventTask
+      ? {
+          ...contextTask,
+          ...eventTask,
+        }
+      : undefined;
   const enriched: AgentEventPayload = {
     ...event,
+    data:
+      mergedTask && Object.keys(mergedTask).length > 0
+        ? { ...event.data, task: mergedTask }
+        : event.data,
     sessionKey,
     seq: nextSeq,
     ts: Date.now(),

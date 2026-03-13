@@ -70,6 +70,7 @@ import { deliverAgentCommandResult } from "./command/delivery.js";
 import { resolveAgentRunContext } from "./command/run-context.js";
 import { updateSessionStoreAfterAgentRun } from "./command/session-store.js";
 import { resolveSession } from "./command/session.js";
+import { buildAgentTaskMetadata } from "./command/task-metadata.js";
 import type { AgentCommandIngressOpts, AgentCommandOpts } from "./command/types.js";
 import { DEFAULT_MODEL, DEFAULT_PROVIDER } from "./defaults.js";
 import { FailoverError } from "./failover-error.js";
@@ -295,6 +296,7 @@ async function persistAcpTurnTranscript(params: {
   sessionAgentId: string;
   threadId?: string | number;
   sessionCwd: string;
+  task?: import("../infra/agent-events.js").AgentTaskMetadata;
 }): Promise<SessionEntry | undefined> {
   const promptText = params.body;
   const replyText = params.finalText;
@@ -346,6 +348,27 @@ async function persistAcpTurnTranscript(params: {
   }
 
   emitSessionTranscriptUpdate(sessionFile);
+
+  if (params.sessionStore && params.storePath && params.task) {
+    const next: SessionEntry = {
+      ...(sessionEntry ?? { sessionId: params.sessionId, updatedAt: Date.now() }),
+      sessionId: params.sessionId,
+      updatedAt: Date.now(),
+      summary: params.task.summary,
+      activity: params.task.activity,
+      cwd: params.task.cwd,
+      cmdline: params.task.cmdline,
+      url: params.task.url,
+    };
+    await persistSessionEntry({
+      sessionStore: params.sessionStore,
+      sessionKey: params.sessionKey,
+      storePath: params.storePath,
+      entry: next,
+    });
+    return next;
+  }
+
   return sessionEntry;
 }
 
@@ -738,6 +761,12 @@ async function agentCommandInternal(
     acpResolution,
   } = prepared;
   let sessionEntry = prepared.sessionEntry;
+  const runTask = buildAgentTaskMetadata({
+    prompt: body,
+    label: opts.label,
+    activity: opts.deliver === true ? "deliver" : "direct",
+    cwd: workspaceDir,
+  });
 
   try {
     if (opts.deliver === true) {
@@ -761,6 +790,7 @@ async function agentCommandInternal(
       const startedAt = Date.now();
       registerAgentRunContext(runId, {
         sessionKey,
+        task: runTask,
       });
       emitAgentEvent({
         runId,
@@ -862,6 +892,12 @@ async function agentCommandInternal(
           sessionAgentId,
           threadId: opts.threadId,
           sessionCwd: resolveAcpSessionCwd(acpResolution.meta) ?? workspaceDir,
+          task: buildAgentTaskMetadata({
+            prompt: body,
+            label: opts.label,
+            activity: "acp",
+            cwd: resolveAcpSessionCwd(acpResolution.meta) ?? workspaceDir,
+          }),
         });
       } catch (error) {
         log.warn(
@@ -902,6 +938,7 @@ async function agentCommandInternal(
       registerAgentRunContext(runId, {
         sessionKey,
         verboseLevel: resolvedVerboseLevel,
+        task: runTask,
       });
     }
 
@@ -1268,6 +1305,7 @@ async function agentCommandInternal(
         defaultModel: model,
         fallbackProvider,
         fallbackModel,
+        task: runTask,
         result,
       });
     }
