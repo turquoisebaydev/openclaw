@@ -110,6 +110,29 @@ describe("gateway session utils", () => {
     expect(parseGroupKey("foo:bar")).toBeNull();
   });
 
+  test("listSessionsFromStore includes task metadata fields", () => {
+    const cfg = createModelDefaultsConfig({ primary: "openai/gpt-5.3-codex" });
+    const now = Date.now();
+    const result = listSessionsFromStore({
+      cfg,
+      storePath: "/tmp/sessions.json",
+      store: {
+        "agent:main:main": {
+          sessionId: "sess-main",
+          updatedAt: now,
+          summary: "debug dashboard",
+          activity: "direct",
+          cwd: "/tmp/ws",
+        } as SessionEntry,
+      },
+      opts: {},
+    });
+
+    expect(result.sessions[0]?.summary).toBe("debug dashboard");
+    expect(result.sessions[0]?.activity).toBe("direct");
+    expect(result.sessions[0]?.cwd).toBe("/tmp/ws");
+  });
+
   test("classifySessionKey respects chat type + prefixes", () => {
     expect(classifySessionKey("global")).toBe("global");
     expect(classifySessionKey("unknown")).toBe("unknown");

@@ -5,6 +5,7 @@ import {
   type SessionEntry,
   updateSessionStore,
 } from "../../config/sessions.js";
+import type { AgentTaskMetadata } from "../../infra/agent-events.js";
 import { estimateUsageCost, resolveModelCostConfig } from "../../utils/usage-format.js";
 import { setCliSessionId } from "../cli-session.js";
 import { resolveContextTokensForModel } from "../context.js";
@@ -29,6 +30,7 @@ export async function updateSessionStoreAfterAgentRun(params: {
   defaultModel: string;
   fallbackProvider?: string;
   fallbackModel?: string;
+  task?: AgentTaskMetadata;
   result: RunResult;
 }) {
   const {
@@ -41,6 +43,7 @@ export async function updateSessionStoreAfterAgentRun(params: {
     defaultModel,
     fallbackProvider,
     fallbackModel,
+    task,
     result,
   } = params;
 
@@ -82,6 +85,13 @@ export async function updateSessionStoreAfterAgentRun(params: {
   next.abortedLastRun = result.meta.aborted ?? false;
   if (result.meta.systemPromptReport) {
     next.systemPromptReport = result.meta.systemPromptReport;
+  }
+  if (task) {
+    next.summary = task.summary;
+    next.activity = task.activity;
+    next.cwd = task.cwd;
+    next.cmdline = task.cmdline;
+    next.url = task.url;
   }
   if (hasNonzeroUsage(usage)) {
     const input = usage.input ?? 0;
