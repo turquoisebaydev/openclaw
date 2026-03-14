@@ -300,7 +300,29 @@ function summarizeString(value: string, maxChars = 160): string {
   return value.length <= maxChars ? value : `${value.slice(0, maxChars)}...`;
 }
 
-function summarizeToolPayload(value: unknown): Record<string, unknown> {
+function resolveObservabilityCommandPreview(
+  toolName: string | undefined,
+  value: unknown,
+): string | undefined {
+  if (!toolName || !value || typeof value !== "object") {
+    return undefined;
+  }
+  const normalized = normalizeToolName(toolName);
+  if (normalized !== "exec") {
+    return undefined;
+  }
+  const detail = inferToolMetaFromArgs(normalized, value);
+  if (!detail) {
+    return undefined;
+  }
+  const primaryLine = detail.split(/\n\s*\n/, 1)[0]?.trim();
+  return primaryLine ? summarizeString(primaryLine, 160) : undefined;
+}
+
+function summarizeToolPayload(
+  value: unknown,
+  opts?: { toolName?: string },
+): Record<string, unknown> {
   if (value == null) {
     return { kind: "null" };
   }
@@ -331,6 +353,10 @@ function summarizeToolPayload(value: unknown): Record<string, unknown> {
       if (typeof item === "string" && item.trim()) {
         summary[key] = summarizeString(item.trim(), 120);
       }
+    }
+    const commandPreview = resolveObservabilityCommandPreview(opts?.toolName, value);
+    if (commandPreview) {
+      summary.commandPreview = commandPreview;
     }
     return summary;
   }
@@ -407,7 +433,7 @@ export async function handleToolExecutionStart(
       toolName,
       toolCallId,
       meta,
-      argsSummary: summarizeToolPayload(args),
+      argsSummary: summarizeToolPayload(args, { toolName }),
     },
   });
 
@@ -627,7 +653,7 @@ export async function handleToolExecutionEnd(
       toolName,
       toolCallId,
       meta,
-      argsSummary: summarizeToolPayload(afterToolCallArgs),
+      argsSummary: summarizeToolPayload(afterToolCallArgs, { toolName }),
       resultSummary: summarizeToolPayload(sanitizedResult),
     },
   });

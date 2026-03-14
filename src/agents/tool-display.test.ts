@@ -117,6 +117,23 @@ describe("tool display details", () => {
     );
   });
 
+  it("unwraps env-prefixed shell wrappers before summarizing exec detail", () => {
+    const detail = formatToolDetail(
+      resolveToolDisplay({
+        name: "exec",
+        args: {
+          command:
+            'OPENCLAW_PROFILE=mini1 OPENCLAW_STATE_DIR=/tmp/state OPENCLAW_CONFIG_PATH=/tmp/config bash -lc "git status --short | head -n 3"',
+          workdir: "/tmp/project",
+        },
+      }),
+    );
+
+    expect(detail).toBe(
+      "check git status -> show first 3 lines (in /tmp/project)\n\n`git status --short | head -n 3`",
+    );
+  });
+
   it("moves cd path to context suffix with multiple stages and raw command", () => {
     const detail = formatToolDetail(
       resolveToolDisplay({
