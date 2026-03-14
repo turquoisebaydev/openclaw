@@ -2,8 +2,10 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { clearAgentRunContext, registerAgentRunContext } from "./agent-events.js";
 import {
   emitObservabilityEvent,
+  onObservabilityEvent,
   resetObservabilityEventsForTest,
   setObservabilityConfigOverrideForTest,
 } from "./observability-events.js";
@@ -52,4 +54,33 @@ describe("observability tool tail formatting", () => {
       fs.rmSync(logPath, { force: true });
     }
   });
+});
+
+it("merges task metadata from run context into observability events", () => {
+  registerAgentRunContext("run-obs-task", {
+    sessionKey: "agent:main:main",
+    task: { summary: "repair dashboard routing", cwd: "/tmp/ws" },
+  });
+
+  let received;
+  const unsubscribe = onObservabilityEvent((event) => {
+    if (event.runId === "run-obs-task") {
+      received = event;
+    }
+  });
+
+  try {
+    emitObservabilityEvent({
+      domain: "llm",
+      event: "call",
+      phase: "start",
+      runId: "run-obs-task",
+      data: { provider: "openai", model: "gpt-5.4" },
+    });
+  } finally {
+    unsubscribe();
+    clearAgentRunContext("run-obs-task");
+  }
+
+  expect(received?.data?.task).toEqual({ summary: "repair dashboard routing", cwd: "/tmp/ws" });
 });
