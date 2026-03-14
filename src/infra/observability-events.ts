@@ -227,7 +227,15 @@ function formatTailToolEvent(event: ObservabilityEventPayload, includeEventIds: 
     pushPart(parts, "args.kind", argsSummary.kind);
     pushPart(parts, "action", argsSummary.action);
     pushPart(parts, "path", argsSummary.path ?? argsSummary.file_path);
-    pushPart(parts, "cmd", argsSummary.command ?? argsSummary.cmd);
+    pushPart(
+      parts,
+      "cmd",
+      argsSummary.commandPreview ??
+        argsSummary.displayCommand ??
+        argsSummary.detail ??
+        argsSummary.command ??
+        argsSummary.cmd,
+    );
     pushPart(parts, "query", argsSummary.query);
     pushPart(parts, "url", argsSummary.url);
   }

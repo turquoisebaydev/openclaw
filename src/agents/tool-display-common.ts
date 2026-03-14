@@ -496,7 +496,7 @@ function trimLeadingEnv(words: string[]): string[] {
 }
 
 function unwrapShellWrapper(command: string): string {
-  const words = splitShellWords(command, 10);
+  const words = trimLeadingEnv(splitShellWords(command, 10));
   if (words.length < 3) {
     return command;
   }
