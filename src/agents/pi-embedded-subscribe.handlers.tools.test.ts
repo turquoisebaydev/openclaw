@@ -1,5 +1,9 @@
 import type { AgentEvent } from "@mariozechner/pi-agent-core";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  onObservabilityEvent,
+  resetObservabilityEventsForTest,
+} from "../infra/observability-events.js";
 import type { MessagingToolSend } from "./pi-embedded-messaging.js";
 import {
   handleToolExecutionEnd,
@@ -58,6 +62,10 @@ function createTestContext(): {
 
   return { ctx, warn, onBlockReplyFlush };
 }
+
+afterEach(() => {
+  resetObservabilityEventsForTest();
+});
 
 describe("handleToolExecutionStart read path checks", () => {
   it("does not warn when read tool uses file_path alias", async () => {
@@ -121,6 +129,42 @@ describe("handleToolExecutionStart read path checks", () => {
     await pending;
 
     expect(ctx.state.toolMetaById.has("tool-await-flush")).toBe(true);
+  });
+});
+
+describe("handleToolExecutionStart observability summaries", () => {
+  it("emits exec commandPreview while preserving the raw command", async () => {
+    const { ctx } = createTestContext();
+    const events: Array<Record<string, unknown>> = [];
+    const unsubscribe = onObservabilityEvent((event) => {
+      if (event.domain === "tool" && event.event === "call" && event.phase === "start") {
+        events.push(event.data ?? {});
+      }
+    });
+
+    try {
+      await handleToolExecutionStart(ctx, {
+        type: "tool_execution_start",
+        toolName: "bash",
+        toolCallId: "tool-exec-observe",
+        args: {
+          command:
+            'OPENCLAW_PROFILE=mini1 OPENCLAW_STATE_DIR=/tmp/state OPENCLAW_CONFIG_PATH=/tmp/config bash -lc "git status --short | head -n 3"',
+          workdir: "/tmp/project",
+        },
+      });
+    } finally {
+      unsubscribe();
+    }
+
+    expect(events).toHaveLength(1);
+    const argsSummary = events[0]?.argsSummary as Record<string, unknown>;
+    const rawCommand = typeof argsSummary.command === "string" ? argsSummary.command : "";
+    expect(argsSummary.commandPreview).toBe(
+      "check git status -> show first 3 lines (in /tmp/project)",
+    );
+    expect(rawCommand).toContain("OPENCLAW_PROFILE=mini1");
+    expect(rawCommand).toContain("OPENCLAW_STATE_DIR=/tmp/state");
   });
 });
 
