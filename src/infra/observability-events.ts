@@ -4,6 +4,7 @@ import { loadConfig } from "../config/config.js";
 import type { OpenClawConfig } from "../config/config.js";
 import type { ObservabilityDomain } from "../config/types.base.js";
 import { formatLocalIsoWithOffset } from "../logging/timestamps.js";
+import { getAgentRunContext } from "./agent-events.js";
 import { resolvePreferredOpenClawTmpDir } from "./tmp-openclaw-dir.js";
 
 export type ObservabilityStatus = "ok" | "error" | "timeout" | "aborted";
@@ -394,9 +395,32 @@ export function emitObservabilityEvent(event: ObservabilityEventInput): void {
     return;
   }
 
+  const runContext = event.runId ? getAgentRunContext(event.runId) : undefined;
+  const baseData = event.data && typeof event.data === "object" ? event.data : undefined;
+  const eventTask =
+    baseData && typeof baseData.task === "object" && baseData.task
+      ? (baseData.task as Record<string, unknown>)
+      : undefined;
+  const contextTask = runContext?.task;
+  const mergedTask =
+    contextTask || eventTask
+      ? {
+          ...contextTask,
+          ...eventTask,
+        }
+      : undefined;
+  const data =
+    mergedTask && Object.keys(mergedTask).length > 0
+      ? {
+          ...baseData,
+          task: mergedTask,
+        }
+      : baseData;
+
   const seq = (state.seq += 1);
   const enriched = {
     ...event,
+    ...(data ? { data } : {}),
     id: `obs_${Date.now()}_${seq}`,
     seq,
     ts: Date.now(),
