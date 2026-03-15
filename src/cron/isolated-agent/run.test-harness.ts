@@ -46,6 +46,7 @@ export const pickLastNonEmptyTextFromPayloadsMock = createMock();
 export const resolveCronPayloadOutcomeMock = createMock();
 export const resolveCronDeliveryPlanMock = createMock();
 export const resolveDeliveryTargetMock = createMock();
+export const registerAgentRunContextMock = createMock();
 
 vi.mock("../../agents/agent-scope.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../../agents/agent-scope.js")>();
@@ -233,7 +234,7 @@ vi.mock("../../infra/agent-events.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../../infra/agent-events.js")>();
   return {
     ...actual,
-    registerAgentRunContext: vi.fn(),
+    registerAgentRunContext: registerAgentRunContextMock,
   };
 });
 
@@ -419,6 +420,7 @@ export function resetRunCronIsolatedAgentTurnHarness(): void {
     error: undefined,
   });
 
+  registerAgentRunContextMock.mockReset();
   logWarnMock.mockReset();
 }
 
