@@ -530,7 +530,7 @@ export async function runCronIsolatedAgentTurn(params: {
   let fallbackProvider = provider;
   let fallbackModel = model;
   const runTask = buildAgentTaskMetadata({
-    prompt: prompt,
+    prompt: commandBody,
     label: params.job.name,
     activity: "cron",
     cwd: cronSession.workspaceDir,
