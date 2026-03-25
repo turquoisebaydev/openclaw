@@ -181,6 +181,197 @@ export const GENERATED_BASE_CONFIG_SCHEMA = {
         },
         additionalProperties: false,
       },
+      observability: {
+        type: "object",
+        properties: {
+          enabled: {
+            type: "boolean",
+          },
+          events: {
+            type: "object",
+            properties: {
+              enabled: {
+                type: "boolean",
+              },
+              bufferSize: {
+                type: "integer",
+                exclusiveMinimum: 0,
+                maximum: 9007199254740991,
+              },
+              domains: {
+                type: "object",
+                properties: {
+                  run: {
+                    type: "boolean",
+                  },
+                  session: {
+                    type: "boolean",
+                  },
+                  queue: {
+                    type: "boolean",
+                  },
+                  llm: {
+                    type: "boolean",
+                  },
+                  tool: {
+                    type: "boolean",
+                  },
+                  fs: {
+                    type: "boolean",
+                  },
+                  exec: {
+                    type: "boolean",
+                  },
+                  web: {
+                    type: "boolean",
+                  },
+                },
+                additionalProperties: false,
+              },
+              capture: {
+                type: "object",
+                properties: {
+                  prompts: {
+                    anyOf: [
+                      {
+                        type: "string",
+                        const: "off",
+                      },
+                      {
+                        type: "string",
+                        const: "summary",
+                      },
+                      {
+                        type: "string",
+                        const: "full",
+                      },
+                    ],
+                  },
+                  toolArgs: {
+                    anyOf: [
+                      {
+                        type: "string",
+                        const: "off",
+                      },
+                      {
+                        type: "string",
+                        const: "summary",
+                      },
+                      {
+                        type: "string",
+                        const: "full",
+                      },
+                    ],
+                  },
+                  toolResults: {
+                    anyOf: [
+                      {
+                        type: "string",
+                        const: "off",
+                      },
+                      {
+                        type: "string",
+                        const: "summary",
+                      },
+                      {
+                        type: "string",
+                        const: "full",
+                      },
+                    ],
+                  },
+                  filePaths: {
+                    anyOf: [
+                      {
+                        type: "string",
+                        const: "off",
+                      },
+                      {
+                        type: "string",
+                        const: "summary",
+                      },
+                      {
+                        type: "string",
+                        const: "full",
+                      },
+                    ],
+                  },
+                  commands: {
+                    anyOf: [
+                      {
+                        type: "string",
+                        const: "off",
+                      },
+                      {
+                        type: "string",
+                        const: "summary",
+                      },
+                      {
+                        type: "string",
+                        const: "full",
+                      },
+                    ],
+                  },
+                  webQueries: {
+                    anyOf: [
+                      {
+                        type: "string",
+                        const: "off",
+                      },
+                      {
+                        type: "string",
+                        const: "summary",
+                      },
+                      {
+                        type: "string",
+                        const: "full",
+                      },
+                    ],
+                  },
+                },
+                additionalProperties: false,
+              },
+              redaction: {
+                type: "object",
+                properties: {
+                  enabled: {
+                    type: "boolean",
+                  },
+                },
+                additionalProperties: false,
+              },
+            },
+            additionalProperties: false,
+          },
+          logs: {
+            type: "object",
+            properties: {
+              enabled: {
+                type: "boolean",
+              },
+              includeEventIds: {
+                type: "boolean",
+              },
+              format: {
+                anyOf: [
+                  {
+                    type: "string",
+                    const: "tail",
+                  },
+                  {
+                    type: "string",
+                    const: "json",
+                  },
+                ],
+              },
+              filePath: {
+                type: "string",
+              },
+            },
+            additionalProperties: false,
+          },
+        },
+        additionalProperties: false,
+      },
       logging: {
         type: "object",
         properties: {
@@ -11771,6 +11962,36 @@ export const GENERATED_BASE_CONFIG_SCHEMA = {
       help: "Cache-trace logging settings for observing cache decisions and payload context in embedded runs. Enable this temporarily for debugging and disable afterward to reduce sensitive log footprint.",
       tags: ["observability", "storage"],
     },
+    observability: {
+      label: "Observability",
+      help: "Runtime observability controls for structured execution events and troubleshooting-focused logs that can feed live monitoring sinks later. Use this to tune event volume, capture detail, and correlation metadata without coupling core runtime to any specific transport.",
+      tags: ["advanced"],
+    },
+    "observability.events": {
+      label: "Runtime Events",
+      help: "Structured in-process runtime event stream controls for execution telemetry emitted by the gateway. Enable targeted domains first and expand capture depth only when the added monitoring value justifies the extra data volume.",
+      tags: ["observability"],
+    },
+    "observability.events.domains": {
+      label: "Runtime Event Domains",
+      help: "Per-domain runtime event toggles that let you selectively emit telemetry for major execution surfaces. Enable only the domains you need during rollout to keep event noise and storage costs under control.",
+      tags: ["observability"],
+    },
+    "observability.events.capture": {
+      label: "Runtime Event Capture",
+      help: "Capture-depth policy for runtime event payload fields that may otherwise be large or sensitive. Prefer summary mode by default, then temporarily raise individual fields to full only for focused debugging sessions.",
+      tags: ["observability"],
+    },
+    "observability.events.redaction": {
+      label: "Runtime Event Redaction",
+      help: "Runtime event redaction policy for masking sensitive values before they leave the core event bus or structured log output. Keep enabled unless you are debugging in an isolated environment with tightly controlled access to raw event streams.",
+      tags: ["privacy", "observability"],
+    },
+    "observability.logs": {
+      label: "Observability Logs",
+      help: "Structured troubleshooting log controls aligned with runtime event correlation keys. Use this to keep machine-readable logs useful for incident response even before external event sinks are added.",
+      tags: ["observability"],
+    },
     "logging.level": {
       label: "Log Level",
       help: 'Primary log level threshold for runtime logger output: "silent", "fatal", "error", "warn", "info", "debug", or "trace". Keep "info" or "warn" for production, and use debug/trace only during investigation.',
@@ -11929,6 +12150,116 @@ export const GENERATED_BASE_CONFIG_SCHEMA = {
     "diagnostics.cacheTrace.includeSystem": {
       label: "Cache Trace Include System",
       help: "Include system prompt in trace output (default: true).",
+      tags: ["observability", "storage"],
+    },
+    "observability.enabled": {
+      label: "Observability Enabled",
+      help: "Master toggle for runtime observability features including structured events and correlated troubleshooting logs. Keep enabled when building monitoring, and disable only if you need the smallest possible instrumentation footprint.",
+      tags: ["observability"],
+    },
+    "observability.events.enabled": {
+      label: "Runtime Events Enabled",
+      help: "Enables emission of structured runtime events onto the internal observability bus. Keep enabled for live dashboards and incident timelines, and disable only when you want observability limited to traditional logs.",
+      tags: ["observability"],
+    },
+    "observability.events.bufferSize": {
+      label: "Runtime Event Buffer Size",
+      help: "Maximum buffered event count reserved for downstream observability listeners before older items must be dropped or ignored. Use a bounded size large enough for bursty turns without letting monitoring paths pressure the core runtime.",
+      tags: ["observability"],
+    },
+    "observability.events.domains.run": {
+      label: "Run Events Enabled",
+      help: "Emit run-level execution events such as attempt lifecycle and terminal status changes. Keep enabled to correlate end-user turns with downstream LLM and tool activity.",
+      tags: ["observability"],
+    },
+    "observability.events.domains.session": {
+      label: "Session Events Enabled",
+      help: "Emit session state and stuck-session events for monitoring routing health and blocked conversations. Keep enabled when you need dashboards or alerts around hung sessions and queue buildup.",
+      tags: ["observability", "storage"],
+    },
+    "observability.events.domains.queue": {
+      label: "Queue Events Enabled",
+      help: "Emit command-queue lane activity events including enqueue and dequeue timing. Use this to spot contention, starvation, or serial bottlenecks across runtime lanes.",
+      tags: ["observability"],
+    },
+    "observability.events.domains.llm": {
+      label: "LLM Events Enabled",
+      help: "Emit outbound LLM call attempt events with provider/model/profile, timing, and terminal status fields. Keep enabled when debugging model latency, auth rotation, or provider-specific failures.",
+      tags: ["observability"],
+    },
+    "observability.events.domains.tool": {
+      label: "Tool Events Enabled",
+      help: "Emit tool lifecycle events for calls made by embedded runs, including timing and summarized inputs/results. Use this to trace which tools were invoked during a turn without depending on free-form logs.",
+      tags: ["observability"],
+    },
+    "observability.events.domains.fs": {
+      label: "Filesystem Events Enabled",
+      help: "Reserve filesystem activity events for file access instrumentation as that coverage is added. Leave disabled until filesystem event emitters are enabled in the runtime.",
+      tags: ["observability"],
+    },
+    "observability.events.domains.exec": {
+      label: "Exec Events Enabled",
+      help: "Reserve command execution activity events for exec/bash instrumentation as that coverage is added. Leave disabled until command execution emitters are enabled in the runtime.",
+      tags: ["observability"],
+    },
+    "observability.events.domains.web": {
+      label: "Web Events Enabled",
+      help: "Reserve web/search activity events for browser and retrieval instrumentation as that coverage is added. Leave disabled until those emitters are implemented in the runtime.",
+      tags: ["observability"],
+    },
+    "observability.events.capture.prompts": {
+      label: "Prompt Capture Mode",
+      help: 'Prompt capture depth for LLM runtime events: "off" omits prompt content metrics, "summary" records high-level sizes only, and "full" allows richer prompt payload capture when explicitly needed for debugging. Use summary by default unless an incident requires deeper capture.',
+      tags: ["observability"],
+    },
+    "observability.events.capture.toolArgs": {
+      label: "Tool Args Capture Mode",
+      help: 'Tool-argument capture depth for runtime events: "off" omits tool input payloads, "summary" records condensed metadata, and "full" allows detailed argument capture for troubleshooting. Use summary by default to keep events useful without oversharing payloads.',
+      tags: ["observability"],
+    },
+    "observability.events.capture.toolResults": {
+      label: "Tool Results Capture Mode",
+      help: 'Tool-result capture depth for runtime events: "off" omits returned payload details, "summary" records concise result metadata, and "full" allows detailed result capture where safe. Use full only in controlled debugging sessions where larger payloads are justified.',
+      tags: ["observability"],
+    },
+    "observability.events.capture.filePaths": {
+      label: "File Path Capture Mode",
+      help: 'Filesystem-path capture depth for runtime events: "off" hides path details, "summary" emits coarse path metadata, and "full" keeps full paths for precise debugging where policy allows it. Use summary when operators need path context without exposing every exact path.',
+      tags: ["observability", "storage"],
+    },
+    "observability.events.capture.commands": {
+      label: "Command Capture Mode",
+      help: 'Command-text capture depth for exec-related runtime events: "off" omits command text, "summary" records compact command previews, and "full" keeps the full command text for deep troubleshooting. Use summary in most environments and reserve full capture for isolated incident work.',
+      tags: ["observability"],
+    },
+    "observability.events.capture.webQueries": {
+      label: "Web Query Capture Mode",
+      help: 'Web-query capture depth for retrieval-related runtime events: "off" omits query text, "summary" records concise search metadata, and "full" keeps the full query payload for debugging search behavior. Use summary unless exact query text is required to reproduce retrieval issues.',
+      tags: ["observability"],
+    },
+    "observability.events.redaction.enabled": {
+      label: "Runtime Event Redaction Enabled",
+      help: "When true, apply built-in redaction before runtime events or structured observability logs expose potentially sensitive values. Keep enabled for shared environments, dashboards, and retained telemetry stores.",
+      tags: ["privacy", "observability"],
+    },
+    "observability.logs.enabled": {
+      label: "Observability Logs Enabled",
+      help: "Enables structured observability-oriented log lines in addition to the runtime event bus. Use this when you want durable troubleshooting trails even before external event consumers are attached.",
+      tags: ["observability"],
+    },
+    "observability.logs.includeEventIds": {
+      label: "Observability Logs Include Event IDs",
+      help: "Attach observability event identifiers to structured log lines so logs can be correlated back to live event consumers and timeline views. Keep enabled when building incident workflows that cross logs and dashboards.",
+      tags: ["observability"],
+    },
+    "observability.logs.format": {
+      label: "Observability Log Format",
+      help: 'Observability log projection format: "tail" writes compact single-line records for live tailing, while "json" writes one JSON object per event. Use tail when watching live runtime activity in a terminal and json when another machine consumer needs direct log parsing.',
+      tags: ["observability"],
+    },
+    "observability.logs.filePath": {
+      label: "Observability Log File Path",
+      help: "Filesystem path for the dedicated observability mirror log file. Use an explicit writable path when you want `tail -f` monitoring to target a stable file separate from the main application log.",
       tags: ["observability", "storage"],
     },
     "agents.list.*.identity.avatar": {
