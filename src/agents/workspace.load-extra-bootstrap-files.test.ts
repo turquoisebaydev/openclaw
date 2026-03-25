@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { loadExtraBootstrapFiles, loadExtraBootstrapFilesWithDiagnostics } from "./workspace.js";
+import { loadExtraBootstrapFiles } from "./workspace.js";
 
 describe("loadExtraBootstrapFiles", () => {
   let fixtureRoot = "";

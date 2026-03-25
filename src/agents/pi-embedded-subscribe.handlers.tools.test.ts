@@ -161,7 +161,7 @@ describe("handleToolExecutionStart observability summaries", () => {
     const argsSummary = events[0]?.argsSummary as Record<string, unknown>;
     const rawCommand = typeof argsSummary.command === "string" ? argsSummary.command : "";
     expect(argsSummary.commandPreview).toBe(
-      "check git status -> show first 3 lines (in /tmp/project)",
+      "check git status -> show first 3 lines (in /tmp/project), `git status --short | head -n 3`",
     );
     expect(rawCommand).toContain("OPENCLAW_PROFILE=mini1");
     expect(rawCommand).toContain("OPENCLAW_STATE_DIR=/tmp/state");
