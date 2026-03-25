@@ -1,5 +1,4 @@
 import fs from "node:fs/promises";
-import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { makeTempWorkspace, writeWorkspaceFile } from "../test-helpers/workspace.js";
@@ -71,6 +70,21 @@ function expectSubagentAllowedBootstrapNames(files: WorkspaceBootstrapFile[]) {
   expect(names).not.toContain("BOOTSTRAP.md");
   expect(names).not.toContain("MEMORY.md");
 }
+
+const mockFiles: WorkspaceBootstrapFile[] = [
+  "AGENTS.md",
+  "SOUL.md",
+  "TOOLS.md",
+  "IDENTITY.md",
+  "USER.md",
+  "HEARTBEAT.md",
+  "BOOTSTRAP.md",
+  "MEMORY.md",
+].map((name) => ({
+  name: name as WorkspaceBootstrapFile["name"],
+  path: `/tmp/${name}`,
+  missing: false,
+}));
 
 describe("ensureAgentWorkspace", () => {
   it("creates BOOTSTRAP.md and records a seeded marker for brand new workspaces", async () => {
@@ -292,10 +306,6 @@ describe("filterBootstrapFilesForSession", () => {
     const profileEntry = filtered.find((file) => file.name === "PROFILE-mini1.md");
     expect(profileEntry).toBeDefined();
   });
-
-  it("keeps profile files for cron sessions", async () => {
-    const tempDir = await makeTempWorkspace("openclaw-workspace-");
-    await writeWorkspaceFile({ dir: tempDir, name: "PROFILE-mini1.md", content: "profile" });
 
   it("filters to allowlist for subagent sessions", () => {
     const result = filterBootstrapFilesForSession(mockFiles, "agent:default:subagent:task-1");

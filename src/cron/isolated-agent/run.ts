@@ -431,7 +431,7 @@ export async function runCronIsolatedAgentTurn(params: {
     prompt: commandBody,
     label: params.job.name,
     activity: "cron",
-    cwd: cronSession.workspaceDir,
+    cwd: workspaceDir,
   });
   const runStartedAt = Date.now();
   let runEndedAt = runStartedAt;

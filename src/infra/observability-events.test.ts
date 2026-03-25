@@ -8,6 +8,7 @@ import {
   onObservabilityEvent,
   resetObservabilityEventsForTest,
   setObservabilityConfigOverrideForTest,
+  type ObservabilityEventPayload,
 } from "./observability-events.js";
 
 afterEach(() => {
@@ -62,7 +63,7 @@ it("merges task metadata from run context into observability events", () => {
     task: { summary: "repair dashboard routing", cwd: "/tmp/ws" },
   });
 
-  let received;
+  let received: ObservabilityEventPayload | undefined;
   const unsubscribe = onObservabilityEvent((event) => {
     if (event.runId === "run-obs-task") {
       received = event;
