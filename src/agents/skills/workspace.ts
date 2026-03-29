@@ -489,24 +489,31 @@ function loadSkillEntries(
   });
 
   const merged = new Map<string, Skill>();
+  const mergedSources = new Map<string, string>();
   // Precedence: extra < bundled < managed < agents-skills-personal < agents-skills-project < workspace
   for (const skill of extraSkills) {
     merged.set(skill.name, skill);
+    mergedSources.set(skill.name, "openclaw-extra");
   }
   for (const skill of bundledSkills) {
     merged.set(skill.name, skill);
+    mergedSources.set(skill.name, "openclaw-bundled");
   }
   for (const skill of managedSkills) {
     merged.set(skill.name, skill);
+    mergedSources.set(skill.name, "openclaw-managed");
   }
   for (const skill of personalAgentsSkills) {
     merged.set(skill.name, skill);
+    mergedSources.set(skill.name, "agents-skills-personal");
   }
   for (const skill of projectAgentsSkills) {
     merged.set(skill.name, skill);
+    mergedSources.set(skill.name, "agents-skills-project");
   }
   for (const skill of workspaceSkills) {
     merged.set(skill.name, skill);
+    mergedSources.set(skill.name, "openclaw-workspace");
   }
 
   const skillEntries: SkillEntry[] = Array.from(merged.values()).map((skill) => {
@@ -522,6 +529,7 @@ function loadSkillEntries(
       frontmatter,
       metadata: resolveOpenClawMetadata(frontmatter),
       invocation: resolveSkillInvocationPolicy(frontmatter),
+      source: mergedSources.get(skill.name),
     };
   });
   return skillEntries;

@@ -529,7 +529,7 @@ describe("runDiscordGatewayLifecycle", () => {
         start,
         stop,
         threadStop,
-        waitCalls: 0,
+        waitCalls: 1,
         gatewaySupervisor,
       });
     } finally {

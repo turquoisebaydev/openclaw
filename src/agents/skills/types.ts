@@ -72,6 +72,7 @@ export type SkillEntry = {
   frontmatter: ParsedSkillFrontmatter;
   metadata?: OpenClawSkillMetadata;
   invocation?: SkillInvocationPolicy;
+  source?: string;
 };
 
 export type SkillEligibilityContext = {

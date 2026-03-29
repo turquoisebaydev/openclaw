@@ -128,7 +128,7 @@ describe("tool display details", () => {
     );
 
     expect(detail).toBe(
-      "check git status -> show first 3 lines (in /tmp/project)\n\n`git status --short | head -n 3`",
+      "check git status -> show first 3 lines (in /tmp/project), `git status --short | head -n 3`",
     );
   });
 

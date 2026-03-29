@@ -466,12 +466,6 @@ async function agentCommandInternal(
           sessionAgentId,
           threadId: opts.threadId,
           sessionCwd: resolveAcpSessionCwd(acpResolution.meta) ?? workspaceDir,
-          task: buildAgentTaskMetadata({
-            prompt: body,
-            label: opts.label,
-            activity: "acp",
-            cwd: resolveAcpSessionCwd(acpResolution.meta) ?? workspaceDir,
-          }),
         });
       } catch (error) {
         log.warn(
