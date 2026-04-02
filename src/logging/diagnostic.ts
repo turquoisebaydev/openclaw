@@ -308,7 +308,9 @@ export function logLaneDequeue(lane: string, waitMs: number, queueSize: number) 
   markActivity();
 }
 
-export function logRunAttempt(params: SessionRef & { runId: string; attempt: number }) {
+export function logRunAttempt(
+  params: SessionRef & { runId: string; attempt: number; [key: string]: unknown },
+) {
   diag.debug(
     `run attempt: sessionId=${params.sessionId ?? "unknown"} sessionKey=${
       params.sessionKey ?? "unknown"

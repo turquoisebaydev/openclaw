@@ -30,6 +30,8 @@ export type AgentRunContext = {
   currentThreadTs?: string;
   replyToMode?: "off" | "first" | "all";
   hasRepliedRef?: { value: boolean };
+  /** Optional normalized task metadata for observability/event surfaces. */
+  task?: Record<string, unknown>;
 };
 
 export type AgentCommandOpts = {
