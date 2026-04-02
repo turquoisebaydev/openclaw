@@ -17,6 +17,8 @@ export type AgentRunContext = {
   sessionKey?: string;
   verboseLevel?: VerboseLevel;
   isHeartbeat?: boolean;
+  /** Optional normalized task metadata for observability/event surfaces. */
+  task?: Record<string, unknown>;
   /** Whether control UI clients should receive chat/agent updates for this run. */
   isControlUiVisible?: boolean;
 };
@@ -52,6 +54,12 @@ export function registerAgentRunContext(runId: string, context: AgentRunContext)
   }
   if (context.verboseLevel && existing.verboseLevel !== context.verboseLevel) {
     existing.verboseLevel = context.verboseLevel;
+  }
+  if (context.task && typeof context.task === "object") {
+    existing.task = {
+      ...(existing.task ?? {}),
+      ...context.task,
+    };
   }
   if (context.isControlUiVisible !== undefined) {
     existing.isControlUiVisible = context.isControlUiVisible;
